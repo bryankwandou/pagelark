@@ -12,8 +12,10 @@
   "dependencies": {
     "@solana/web3.js": "^1.99.0",
     "buffer": "^6.0.3",
+    "docx": "^9.9.0",
     "idb-keyval": "^6.3.0",
     "jspdf": "^4.2.1",
+    "jsqr": "^1.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tesseract.js": "^7.0.0"

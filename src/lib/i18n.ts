@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
+import { capture } from './i18n/capture';
+import { tools } from './i18n/tools';
 
-const en = {
+const baseEn = {
   tagline: 'The scanner app that stays free.',
   heroSub:
     'Point your camera at a page. Pagelark finds the edges, flattens it, turns the paper clean white, reads the text, and hands you a searchable PDF. It runs in your browser, keeps every file on your device, and never shows an ad.',
@@ -130,6 +132,7 @@ const en = {
   footer: 'Free and open source. Built for people who need scanned paperwork and should not have to pay monthly for it.',
 };
 
+const en = { ...baseEn, ...capture.en, ...tools.en };
 export type Dict = typeof en;
 
 const id: Dict = {
@@ -260,6 +263,8 @@ const id: Dict = {
   ctaTitle: 'Pindai halaman pertama Anda sekarang',
   ctaBody: 'Tanpa akun. Terbuka dalam sedetik.',
   footer: 'Gratis dan terbuka. Dibuat untuk orang yang butuh memindai berkas dan tidak seharusnya membayar tiap bulan untuk itu.',
+  ...capture.id,
+  ...tools.id,
 };
 
 export const dicts = { en, id };

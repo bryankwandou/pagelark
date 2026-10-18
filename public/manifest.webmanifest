@@ -2,9 +2,9 @@
   "name": "Pagelark Scanner",
   "short_name": "Pagelark",
   "description": "Free document scanner with OCR and searchable PDF export. No ads, no account.",
-  "start_url": "/#/app",
+  "start_url": "./#/app",
   "display": "standalone",
   "background_color": "#f7f6f2",
   "theme_color": "#3d5afe",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

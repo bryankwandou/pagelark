@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './App.css'
+import './styles/capture.css'
+import './styles/tools.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -12,5 +14,5 @@ createRoot(document.getElementById('root')!).render(
 
 // Offline support: cache the app shell after first load.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}))
 }

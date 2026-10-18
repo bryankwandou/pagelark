@@ -221,9 +221,9 @@ p { margin: 0; }
 
 /* ---------- document view ---------- */
 .doc-view { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; }
-.doc-head { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; }
+.doc-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; }
 .doc-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-content: flex-start; min-width: 0; }
-.doc-body { display: grid; grid-template-columns: 1fr; }
+.doc-body { display: grid; grid-template-columns: minmax(0, 1fr); }
 .stage { padding: 16px; display: grid; gap: 12px; justify-items: center; background: var(--surface-2); }
 .stage-page { width: min(100%, 520px); background: #fff; border-radius: 6px; box-shadow: 0 20px 50px -24px rgba(0,0,0,.45); overflow: hidden; }
 .stage-page.placing { cursor: crosshair; outline: 3px dashed var(--primary); outline-offset: 4px; }
@@ -263,7 +263,7 @@ p { margin: 0; }
 code { font: 0.78rem/1.4 ui-monospace, 'SF Mono', Menlo, monospace; word-break: break-all; }
 .error { color: var(--danger); font-size: 0.9rem; padding: 0 16px 16px; }
 @media (min-width: 900px) {
-  .doc-body { grid-template-columns: 1fr 380px; height: calc(100dvh - 63px); }
+  .doc-body { grid-template-columns: minmax(0, 1fr) 380px; height: calc(100dvh - 63px); }
   .stage { overflow: auto; padding: 32px; align-content: start; }
   .panel { border-left: 1px solid var(--line); overflow: auto; }
 }
