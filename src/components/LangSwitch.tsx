@@ -1,4 +1,4 @@
-import { useT, type Lang } from '../lib/i18n';
+import { langNames, useT, type Lang } from '../lib/i18n';
 import { Icon } from './Icon';
 
 export function LangSwitch({ compact }: { compact?: boolean }) {
@@ -8,8 +8,9 @@ export function LangSwitch({ compact }: { compact?: boolean }) {
       <Icon name="globe" size={18} />
       {!compact && <span className="sr">{t.language}</span>}
       <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} aria-label={t.language}>
-        <option value="en">English</option>
-        <option value="id">Bahasa Indonesia</option>
+        {(Object.keys(langNames) as Lang[]).map((l) => (
+          <option key={l} value={l}>{langNames[l]}</option>
+        ))}
       </select>
     </label>
   );

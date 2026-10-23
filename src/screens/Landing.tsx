@@ -234,7 +234,7 @@ export function Landing() {
           <div className="chain-arrow" />
           <code className="chain-hash">sha256 9f2c…e41a</code>
           <div className="chain-arrow" />
-          <div className="chain-block">Solana devnet<br /><small>Memo · signed by you</small></div>
+          <div className="chain-block">Solana devnet<br /><small>{t.memoSigned}</small></div>
         </div>
       </section>
 

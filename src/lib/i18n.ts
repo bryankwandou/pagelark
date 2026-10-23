@@ -1,6 +1,9 @@
 import { createContext, useContext } from 'react';
 import { capture } from './i18n/capture';
 import { tools } from './i18n/tools';
+import { es } from './i18n/es';
+import { fr } from './i18n/fr';
+import { pt } from './i18n/pt';
 
 const baseEn = {
   tagline: 'The scanner app that stays free.',
@@ -83,6 +86,11 @@ const baseEn = {
   working: 'Working',
   install: 'Install app',
   privacy: 'Files stay on this device',
+  flash: 'Flash',
+  scanMode: 'Scan mode',
+  onChain: 'On chain',
+  thisFile: 'This file',
+  memoSigned: 'Memo · signed by you',
   // landing
   navFeatures: 'Features',
   navHow: 'How it works',
@@ -217,6 +225,11 @@ const id: Dict = {
   working: 'Memproses',
   install: 'Pasang aplikasi',
   privacy: 'File tetap di perangkat ini',
+  flash: 'Lampu kilat',
+  scanMode: 'Mode pindai',
+  onChain: 'Di rantai',
+  thisFile: 'File ini',
+  memoSigned: 'Memo · ditandatangani oleh Anda',
   navFeatures: 'Fitur',
   navHow: 'Cara kerja',
   navProof: 'Bukti',
@@ -267,8 +280,27 @@ const id: Dict = {
   ...tools.id,
 };
 
-export const dicts = { en, id };
+export const dicts = { en, id, es, fr, pt };
 export type Lang = keyof typeof dicts;
+
+export const langNames: Record<Lang, string> = {
+  en: 'English',
+  id: 'Bahasa Indonesia',
+  es: 'Español',
+  fr: 'Français',
+  pt: 'Português',
+};
+
+// Tesseract language set to try first for each interface language.
+export const ocrDefaults: Record<Lang, string> = {
+  en: 'eng+ind',
+  id: 'eng+ind',
+  es: 'spa+eng',
+  fr: 'fra+eng',
+  pt: 'por+eng',
+};
+
+const isLang = (s: string | null | undefined): s is Lang => !!s && s in dicts;
 export const LangCtx = createContext<{ t: Dict; lang: Lang; setLang: (l: Lang) => void }>({
   t: en,
   lang: 'en',
@@ -279,9 +311,11 @@ export const useT = () => useContext(LangCtx);
 export function initialLang(): Lang {
   try {
     const s = localStorage.getItem('pl-lang');
-    if (s === 'en' || s === 'id') return s;
+    if (isLang(s)) return s;
   } catch {
     /* storage blocked */
   }
-  return 'en';
+  // English stays the default unless the browser asks for one we have.
+  const nav = navigator.language?.slice(0, 2).toLowerCase();
+  return isLang(nav) ? nav : 'en';
 }

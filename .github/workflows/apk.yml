@@ -1,0 +1,37 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      # npm ci rejects the lockfile because of optional peers in @solana/* and ws.
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew && node scripts/assemble-apk.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pagelark-debug-apk
+          path: release/pagelark-debug.apk
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/pagelark-debug.apk

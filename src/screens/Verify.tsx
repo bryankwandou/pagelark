@@ -60,9 +60,9 @@ export function Verify({ sig: initial }: { sig?: string }) {
               <dd><code>{res.signer}</code></dd>
               <dt>{t.when}</dt>
               <dd>{res.time ? new Date(res.time * 1000).toLocaleString() : '-'}</dd>
-              <dt>On chain</dt>
+              <dt>{t.onChain}</dt>
               <dd><code>{res.hash}</code></dd>
-              <dt>This file</dt>
+              <dt>{t.thisFile}</dt>
               <dd><code>{res.local}</code></dd>
             </dl>
             <a href={explorer(sig.trim())} target="_blank" rel="noreferrer">Solana Explorer</a>

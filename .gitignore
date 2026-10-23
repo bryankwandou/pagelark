@@ -25,3 +25,12 @@ dist-ssr
 
 # Smoke test output
 scripts/out
+
+# Android (Capacitor) build outputs and local SDK path
+release/
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+local.properties
+*.apk

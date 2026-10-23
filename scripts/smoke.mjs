@@ -26,6 +26,27 @@ for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['table
   await p.close();
 }
 
+// Every interface language swaps the hero copy and still fits a phone.
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'en-US' });
+  p.on('pageerror', (e) => errors.push(`lang: ${e.message}`));
+  await p.goto(base);
+  await p.waitForSelector('.hero h1');
+  const enTitle = await p.textContent('.hero h1');
+  const bad = [];
+  for (const l of ['id', 'es', 'fr', 'pt']) {
+    await p.selectOption('.nav-right select', l);
+    await p.waitForTimeout(250);
+    const title = await p.textContent('.hero h1');
+    const sw = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    const htmlLang = await p.evaluate(() => document.documentElement.lang);
+    if (title === enTitle || sw > 0 || htmlLang !== l) bad.push(`${l}: title=${title === enTitle ? 'unchanged' : 'ok'} overflow=${sw} lang=${htmlLang}`);
+    await p.screenshot({ path: `${out}/landing-${l}.png` });
+  }
+  check('five interface languages switch cleanly', bad.length === 0, bad.join('; '));
+  await p.close();
+}
+
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => errors.push(`flow: ${e.message}`));
@@ -65,6 +86,21 @@ const docOverflow = await page.evaluate(() => {
 });
 check('document screen fits a phone', docOverflow <= 0, `overflow=${docOverflow}px`);
 await page.screenshot({ path: `${out}/doc.png` });
+
+// Fast taps across filters: the last one tapped must be the one that sticks.
+{
+  const f = page.locator('.filter');
+  const settle = () => page.waitForSelector('.busy', { state: 'detached', timeout: 30000 }).then(() => page.waitForTimeout(400));
+  await f.nth(0).click();
+  await settle();
+  const first = await page.getAttribute('img.fade-in', 'src');
+  for (const i of [4, 2, 3]) await f.nth(i).click({ force: true });
+  await f.nth(0).click({ force: true });
+  await settle();
+  const activeIdx = await f.evaluateAll((els) => els.findIndex((e) => e.classList.contains('active')));
+  const after = await page.getAttribute('img.fade-in', 'src');
+  check('rapid filter taps keep the last choice', activeIdx === 0 && after === first, `active=${activeIdx}`);
+}
 
 // OCR
 await page.locator('[role=tab]').nth(1).click();

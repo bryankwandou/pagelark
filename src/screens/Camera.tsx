@@ -125,7 +125,7 @@ export function Camera({ addTo }: { addTo?: string }) {
           <Icon name="home" />
         </button>
         <span className="privacy-pill"><Icon name="shield" size={16} /> {t.privacy}</span>
-        <button className={`icon-btn ${torch ? 'on' : ''}`} onClick={toggleTorch} aria-label="Flash">
+        <button className={`icon-btn ${torch ? 'on' : ''}`} onClick={toggleTorch} aria-label={t.flash}>
           <Icon name="flash" />
         </button>
       </header>
@@ -138,7 +138,7 @@ export function Camera({ addTo }: { addTo?: string }) {
         {flash && <div className="flash" />}
       </div>
 
-      <nav className="modes" aria-label="Scan mode">
+      <nav className="modes" aria-label={t.scanMode}>
         {MODES.map((m) => (
           <button key={m} className={m === mode ? 'active' : ''} onClick={() => setMode(m)}>
             {t.modes[m]}

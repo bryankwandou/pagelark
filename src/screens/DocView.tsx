@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useT } from '../lib/i18n';
+import { useEffect, useRef, useState } from 'react';
+import { ocrDefaults, useT } from '../lib/i18n';
 import { Icon } from '../components/Icon';
 import { SignPad } from '../components/SignPad';
 import { applyFilter, loadImage, rotate, toCanvas, toJpeg, type Filter } from '../lib/image';
@@ -19,14 +19,15 @@ async function canvasFrom(url: string) {
 }
 
 export function DocView({ id, initialTab }: { id: string; initialTab?: string }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [doc, setDoc] = useState<Doc | null | undefined>(undefined);
   const [cur, setCur] = useState(0);
   const [tab, setTab] = useState<Tab>((TABS as string[]).includes(initialTab ?? '') ? (initialTab as Tab) : 'pages');
   const [busy, setBusy] = useState<string | null>(null);
+  const filterSeq = useRef(0);
   const [progress, setProgress] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [ocrLang, setOcrLang] = useState('eng+ind');
+  const [ocrLang, setOcrLang] = useState(() => ocrDefaults[lang]);
   const [size, setSize] = useState<PageSize>('a4');
   const [padOpen, setPadOpen] = useState(false);
   const [stamp, setStamp] = useState<{ kind: 'img' | 'text'; value: string } | null>(null);
@@ -59,9 +60,12 @@ export function DocView({ id, initialTab }: { id: string; initialTab?: string })
   const setPage = (i: number, patch: Partial<Doc['pages'][number]>) =>
     update({ ...doc, pages: doc.pages.map((p, j) => (j === i ? { ...p, ...patch } : p)), proof: undefined });
 
+  // Quick taps can overlap; only the most recent filter choice may land.
   const changeFilter = async (f: Filter) => {
+    const ticket = ++filterSeq.current;
     setBusy(t.working);
     const out = toJpeg(applyFilter(await canvasFrom(page.raw), f), 0.88);
+    if (ticket !== filterSeq.current) return;
     await setPage(cur, { filter: f, out });
     setBusy(null);
   };
@@ -246,8 +250,12 @@ export function DocView({ id, initialTab }: { id: string; initialTab?: string })
                   <option value="eng+ind">English + Indonesia</option>
                   <option value="eng">English</option>
                   <option value="ind">Indonesia</option>
+                  <option value="spa+eng">Español + English</option>
                   <option value="spa">Español</option>
+                  <option value="fra+eng">Français + English</option>
                   <option value="fra">Français</option>
+                  <option value="por+eng">Português + English</option>
+                  <option value="por">Português</option>
                   <option value="deu">Deutsch</option>
                 </select>
               </label>
