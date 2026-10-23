@@ -90,6 +90,12 @@ The APK is a Capacitor 8 shell with the built web app bundled inside, so it work
 npm run apk        # build web, cap sync android, gradlew assembleDebug -> release/pagelark-debug.apk
 ```
 
+Download: [latest release](https://github.com/bryankwandou/pagelark/releases/latest) (`pagelark-debug.apk`, about 4.4 MB, debug-signed, so Android asks you to allow installs from this source).
+
+Checked on 2026-10-24 on an Android emulator (API 36, software GPU): the APK installed, launched, and served the bundled build from `https://localhost/`. The dialog in the screenshot belongs to the emulator's own system process, which was overloaded. Pagelark was still running. A real phone has not been tested yet.
+
+<img src="docs/media/apk-emulator.png" alt="Pagelark APK on the Android emulator" width="260">
+
 Set `ANDROID_HOME` (or `android/local.properties`) and use JDK 21. The `Android APK` workflow builds the same file on GitHub Actions. Run it by hand, or push a `v*` tag to attach the APK to a release.
 
 ## Deployment
