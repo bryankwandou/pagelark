@@ -74,6 +74,25 @@ await page.waitForSelector('input[type=file]', { state: 'attached' });
 await page.setInputFiles('input[type=file]', { name: 'desk.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
 await page.waitForSelector('.crop, .btn.primary');
 await page.screenshot({ path: `${out}/crop.png` });
+
+// Effort slider: the wheel steps it from lightest to heaviest and back, clamped at both ends.
+{
+  const slider = page.locator('.effort').first();
+  const range = slider.locator('input[type=range]');
+  const label = () => slider.locator('.effort-head strong').textContent();
+  await slider.scrollIntoViewIfNeeded();
+  await slider.hover();
+  const start = Number(await range.inputValue());
+  const seen = new Set([await label()]);
+  for (let i = 0; i < 7; i++) { await page.mouse.wheel(0, 100); await page.waitForTimeout(60); seen.add(await label()); }
+  const top = Number(await range.inputValue());
+  for (let i = 0; i < 7; i++) { await page.mouse.wheel(0, -100); await page.waitForTimeout(60); }
+  const bottom = Number(await range.inputValue());
+  await range.fill(String(start));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/crop-effort.png` });
+  check('effort slider wheels through six levels', top === 6 && bottom === 1 && seen.size >= 7 - start, `start=${start} top=${top} bottom=${bottom} labels=${seen.size}`);
+}
 await page.click('.btn.primary');
 await page.waitForSelector('.thumb-stack:not([disabled])');
 await page.click('.thumb-stack');

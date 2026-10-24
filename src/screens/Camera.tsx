@@ -3,6 +3,7 @@ import { useT } from '../lib/i18n';
 import { Icon } from '../components/Icon';
 import { CropEditor } from '../components/CropEditor';
 import { applyFilter, loadImage, toJpeg, warp, type Filter, type Quad } from '../lib/image';
+import { getEffort, profiles } from '../lib/effort';
 import { defaultName, getDoc, saveDoc, uid, type Doc, type Page, type ScanMode } from '../lib/store';
 import { go } from '../router';
 
@@ -91,7 +92,7 @@ export function Camera({ addTo }: { addTo?: string }) {
     const img = pending[0];
     setBusy(true);
     await new Promise((r) => setTimeout(r, 30)); // let the spinner paint
-    const flat = warp(img, q);
+    const flat = warp(img, q, profiles[getEffort()].maxSide);
     const f = modeFilter[mode];
     const page: Page = { id: uid(), raw: toJpeg(flat, 0.9), out: toJpeg(applyFilter(flat, f), 0.88), filter: f };
     setPages((p) => [...p, page]);

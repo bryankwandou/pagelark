@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { detectQuad, type Quad } from '../lib/image';
 import { useT } from '../lib/i18n';
+import { getEffort, useEffort } from '../lib/effort';
 import { Icon } from './Icon';
+import { EffortSlider } from './EffortSlider';
 
 /** Shows the photo with four draggable corner handles. */
 export function CropEditor({
@@ -14,8 +16,17 @@ export function CropEditor({
   onCancel: () => void;
 }) {
   const { t } = useT();
-  const [q, setQ] = useState<Quad>(() => detectQuad(img));
+  const effort = useEffort();
+  const [q, setQ] = useState<Quad>(() => detectQuad(img, getEffort()));
   const box = useRef<HTMLDivElement>(null);
+  const firstEffort = useRef(effort);
+
+  // Moving the slider re-runs detection at the new effort.
+  useEffect(() => {
+    if (effort === firstEffort.current) return;
+    firstEffort.current = effort;
+    setQ(detectQuad(img, effort));
+  }, [effort, img]);
   const [scale, setScale] = useState(1);
   const drag = useRef<number | null>(null);
   const W = img.naturalWidth, H = img.naturalHeight;
@@ -87,7 +98,8 @@ export function CropEditor({
         </div>
       </div>
       <footer className="crop-foot">
-        <button className="chip" onClick={() => setQ(detectQuad(img))}>
+        <EffortSlider dark />
+        <button className="chip" onClick={() => setQ(detectQuad(img, effort))}>
           <Icon name="wand" size={18} /> {t.autoDetect}
         </button>
         <button

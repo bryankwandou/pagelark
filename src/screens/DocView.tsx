@@ -5,6 +5,8 @@ import { SignPad } from '../components/SignPad';
 import { applyFilter, loadImage, rotate, toCanvas, toJpeg, type Filter } from '../lib/image';
 import { deleteDoc, getDoc, saveDoc, type Doc } from '../lib/store';
 import { recognize } from '../lib/ocr';
+import { getEffort } from '../lib/effort';
+import { EffortSlider } from '../components/EffortSlider';
 import { buildPdf, download, sha256, shareOrDownload, type PageSize } from '../lib/pdf';
 import { explorer } from '../lib/explorer';
 import { go } from '../router';
@@ -102,8 +104,9 @@ export function DocView({ id, initialTab }: { id: string; initialTab?: string })
     setErr(null);
     try {
       const pages = [...doc.pages];
+      const effort = getEffort();
       for (let i = 0; i < pages.length; i++) {
-        const r = await recognize(pages[i].out, ocrLang, (p) => setProgress((i + p) / pages.length));
+        const r = await recognize(pages[i].out, ocrLang, (p) => setProgress((i + p) / pages.length), effort);
         pages[i] = { ...pages[i], text: r.text, words: r.words };
       }
       await update({ ...doc, pages, proof: undefined });
@@ -259,6 +262,7 @@ export function DocView({ id, initialTab }: { id: string; initialTab?: string })
                   <option value="deu">Deutsch</option>
                 </select>
               </label>
+              <EffortSlider />
               <button className="btn primary wide" onClick={runOcr}><Icon name="text" /> {t.readText}</button>
               {allText ? (
                 <>

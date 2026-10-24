@@ -1,5 +1,6 @@
 // Image pipeline: find the page, flatten it, clean it up.
 // Everything runs on canvas in the browser; no pixel leaves the device.
+import { profiles, type Effort } from './effort';
 
 export type Pt = { x: number; y: number };
 export type Quad = [Pt, Pt, Pt, Pt]; // tl, tr, br, bl
@@ -23,23 +24,53 @@ export function toCanvas(img: CanvasImageSource, w: number, h: number) {
 }
 
 /**
- * Guess the page corners. Works on a small copy: builds a brightness mask
- * (paper is usually the brightest large region), then takes the extreme
- * points along the two diagonals. Falls back to a 4% inset when unsure.
+ * Guess the page corners on a small copy. Two methods:
+ * - brightness: paper is usually the brightest large region, so take the
+ *   extreme points of a brightness mask along the two diagonals;
+ * - edges (effort 3+): Sobel gradients, a Hough transform for straight lines,
+ *   then every 2+2 line combination is scored by how much of its outline
+ *   actually lies on an edge. This still works on a white desk.
+ * The best-supported candidate wins; a 4% inset is used when nothing is sure.
  */
-export function detectQuad(img: HTMLImageElement | HTMLCanvasElement): Quad {
+export function detectQuad(img: HTMLImageElement | HTMLCanvasElement, effort: Effort = 3): Quad {
+  const { detect, edges } = profiles[effort];
   const W = 'naturalWidth' in img ? img.naturalWidth : img.width;
   const H = 'naturalHeight' in img ? img.naturalHeight : img.height;
-  const s = 240 / Math.max(W, H);
+  const s = detect / Math.max(W, H);
   const w = Math.max(1, Math.round(W * s));
   const h = Math.max(1, Math.round(H * s));
   const d = toCanvas(img, w, h).getContext('2d')!.getImageData(0, 0, w, h).data;
   const lum = new Float32Array(w * h);
-  let sum = 0;
-  for (let i = 0; i < w * h; i++) {
-    lum[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
-    sum += lum[i];
+  for (let i = 0; i < w * h; i++) lum[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  const inset: Quad = [
+    { x: W * 0.04, y: H * 0.04 },
+    { x: W * 0.96, y: H * 0.04 },
+    { x: W * 0.96, y: H * 0.96 },
+    { x: W * 0.04, y: H * 0.96 },
+  ];
+
+  let best = brightQuad(lum, w, h);
+  if (edges && w > 16 && h > 16) {
+    const soft = boxBlur(lum, w, h, 1);
+    const g = sobel(soft, w, h);
+    const thr = edgeThreshold(g.mag);
+    let top = best ? outlineScore(best, g.mag, soft, w, h, thr) : -1;
+    for (const c of lineQuads(g, w, h, thr)) {
+      const sc = outlineScore(c, g.mag, soft, w, h, thr);
+      // an edge quad must be well supported before it beats brightness
+      if (sc > top && sc > 0.55) {
+        top = sc;
+        best = c;
+      }
+    }
   }
+  if (!best) return inset;
+  return best.map((p) => ({ x: Math.min(W, Math.max(0, p.x / s)), y: Math.min(H, Math.max(0, p.y / s)) })) as Quad;
+}
+
+function brightQuad(lum: Float32Array, w: number, h: number): Quad | null {
+  let sum = 0;
+  for (let i = 0; i < w * h; i++) sum += lum[i];
   const mean = sum / (w * h);
   const thr = Math.min(235, mean + 12);
   let tl = { v: Infinity, p: { x: 0, y: 0 } },
@@ -59,18 +90,174 @@ export function detectQuad(img: HTMLImageElement | HTMLCanvasElement): Quad {
       if (y - x > bl.v) bl = { v: y - x, p: { x, y } };
     }
   }
-  const inset: Quad = [
-    { x: W * 0.04, y: H * 0.04 },
-    { x: W * 0.96, y: H * 0.04 },
-    { x: W * 0.96, y: H * 0.96 },
-    { x: W * 0.04, y: H * 0.96 },
-  ];
   // Too little or too much bright area means the guess is not trustworthy.
   const frac = count / (w * h);
-  if (frac < 0.12 || frac > 0.97) return inset;
-  const q = [tl.p, tr.p, br.p, bl.p].map((p) => ({ x: p.x / s, y: p.y / s })) as Quad;
-  if (quadArea(q) < W * H * 0.12) return inset;
-  return q;
+  if (frac < 0.12 || frac > 0.97) return null;
+  const q: Quad = [tl.p, tr.p, br.p, bl.p];
+  return quadArea(q) < w * h * 0.12 ? null : q;
+}
+
+type Grad = { mag: Float32Array; ang: Uint8Array };
+
+// Sobel magnitude, plus the gradient direction folded into 0..179 degrees,
+// which is also the normal angle of the line the pixel sits on.
+function sobel(g: Float32Array, w: number, h: number): Grad {
+  const mag = new Float32Array(w * h);
+  const ang = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const gx = g[i - w + 1] + 2 * g[i + 1] + g[i + w + 1] - g[i - w - 1] - 2 * g[i - 1] - g[i + w - 1];
+      const gy = g[i + w - 1] + 2 * g[i + w] + g[i + w + 1] - g[i - w - 1] - 2 * g[i - w] - g[i - w + 1];
+      mag[i] = Math.hypot(gx, gy);
+      let a = Math.round((Math.atan2(gy, gx) * 180) / Math.PI);
+      if (a < 0) a += 180;
+      ang[i] = a % 180;
+    }
+  }
+  return { mag, ang };
+}
+
+// Strong edges only: the 85th percentile of a sample, never below a floor.
+function edgeThreshold(mag: Float32Array) {
+  const step = Math.max(1, Math.floor(mag.length / 4000));
+  const sample: number[] = [];
+  for (let i = 0; i < mag.length; i += step) sample.push(mag[i]);
+  sample.sort((a, b) => a - b);
+  return Math.max(60, sample[Math.floor(sample.length * 0.85)]);
+}
+
+type Line = { t: number; r: number; v: number };
+
+/** Hough lines (x cos t + y sin t = r), each edge pixel voting near its own normal. */
+function houghLines({ mag, ang }: Grad, w: number, h: number, thr: number): Line[] {
+  const diag = Math.ceil(Math.hypot(w, h));
+  const NR = 2 * diag + 1;
+  const acc = new Uint32Array(180 * NR);
+  const cos = new Float32Array(180), sin = new Float32Array(180);
+  for (let t = 0; t < 180; t++) {
+    cos[t] = Math.cos((t * Math.PI) / 180);
+    sin[t] = Math.sin((t * Math.PI) / 180);
+  }
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      if (mag[i] < thr) continue;
+      for (let k = -6; k <= 6; k++) {
+        const t = (ang[i] + k + 180) % 180;
+        acc[t * NR + Math.round(x * cos[t] + y * sin[t]) + diag]++;
+      }
+    }
+  }
+  const minVotes = Math.max(8, Math.min(w, h) * 0.2);
+  const peaks: Line[] = [];
+  for (let t = 0; t < 180; t++) {
+    for (let r = 1; r < NR - 1; r++) {
+      const v = acc[t * NR + r];
+      if (v < minVotes || v < acc[t * NR + r - 1] || v < acc[t * NR + r + 1]) continue;
+      peaks.push({ t, r: r - diag, v });
+    }
+  }
+  peaks.sort((a, b) => b.v - a.v);
+  // Keep distinct lines only. t and t±180 with -r are the same line.
+  const near = Math.max(w, h) * 0.05;
+  const out: Line[] = [];
+  for (const p of peaks) {
+    const dup = out.some((q) => {
+      const dt = Math.abs(p.t - q.t);
+      if (dt < 8) return Math.abs(p.r - q.r) < near;
+      if (dt > 172) return Math.abs(p.r + q.r) < near;
+      return false;
+    });
+    if (!dup) out.push(p);
+    if (out.length >= 24) break;
+  }
+  return out;
+}
+
+function meet(a: Line, b: Line): Pt | null {
+  const ta = (a.t * Math.PI) / 180, tb = (b.t * Math.PI) / 180;
+  const c1 = Math.cos(ta), s1 = Math.sin(ta), c2 = Math.cos(tb), s2 = Math.sin(tb);
+  const det = c1 * s2 - s1 * c2;
+  if (Math.abs(det) < 1e-6) return null;
+  return { x: (a.r * s2 - s1 * b.r) / det, y: (c1 * b.r - a.r * c2) / det };
+}
+
+/** All plausible quads made of two roughly horizontal and two roughly vertical lines. */
+function lineQuads(g: Grad, w: number, h: number, thr: number): Quad[] {
+  const lines = houghLines(g, w, h, thr);
+  // normals near 90 degrees belong to horizontal lines
+  const hor = lines.filter((l) => l.t >= 45 && l.t < 135).slice(0, 8);
+  const ver = lines.filter((l) => l.t < 45 || l.t >= 135).slice(0, 8);
+  const yAt = (l: Line) => (l.r - (w / 2) * Math.cos((l.t * Math.PI) / 180)) / Math.sin((l.t * Math.PI) / 180);
+  const xAt = (l: Line) => (l.r - (h / 2) * Math.sin((l.t * Math.PI) / 180)) / Math.cos((l.t * Math.PI) / 180);
+  const quads: Quad[] = [];
+  for (let i = 0; i < hor.length; i++)
+    for (let j = i + 1; j < hor.length; j++) {
+      const [top, bot] = yAt(hor[i]) < yAt(hor[j]) ? [hor[i], hor[j]] : [hor[j], hor[i]];
+      if (yAt(bot) - yAt(top) < h * 0.25) continue;
+      for (let k = 0; k < ver.length; k++)
+        for (let m = k + 1; m < ver.length; m++) {
+          const [lef, rig] = xAt(ver[k]) < xAt(ver[m]) ? [ver[k], ver[m]] : [ver[m], ver[k]];
+          if (xAt(rig) - xAt(lef) < w * 0.25) continue;
+          const pts = [meet(top, lef), meet(top, rig), meet(bot, rig), meet(bot, lef)];
+          if (pts.some((p) => !p || p.x < -w * 0.02 || p.y < -h * 0.02 || p.x > w * 1.02 || p.y > h * 1.02)) continue;
+          const q = pts as Quad;
+          if (!convex(q) || quadArea(q) < w * h * 0.12) continue;
+          quads.push(q);
+        }
+    }
+  return quads;
+}
+
+function convex(q: Quad) {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4];
+    const z = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    if (z === 0) continue;
+    if (sign && Math.sign(z) !== sign) return false;
+    sign = Math.sign(z);
+  }
+  return true;
+}
+
+/**
+ * Share of the outline that sits on a strong edge with the paper side
+ * brighter than the outside. That second test rejects the box around a block
+ * of text, whose outside is paper. Weighted toward the weakest side so three
+ * good sides cannot carry a missing fourth, with a small bonus for area so
+ * the outer sheet beats an inner margin.
+ */
+function outlineScore(q: Quad, mag: Float32Array, lum: Float32Array, w: number, h: number, thr: number) {
+  const cx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4, cy = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+  const lumAt = (x: number, y: number) =>
+    lum[Math.min(h - 1, Math.max(0, Math.round(y))) * w + Math.min(w - 1, Math.max(0, Math.round(x)))];
+  const sides: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4];
+    const len = Math.max(1e-6, dist(a, b));
+    // unit normal pointing into the quad
+    let nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len;
+    if (nx * (cx - (a.x + b.x) / 2) + ny * (cy - (a.y + b.y) / 2) < 0) { nx = -nx; ny = -ny; }
+    const n = Math.max(20, Math.min(200, Math.round(len)));
+    let hit = 0;
+    for (let k = 0; k <= n; k++) {
+      const fx = a.x + ((b.x - a.x) * k) / n, fy = a.y + ((b.y - a.y) * k) / n;
+      if (lumAt(fx + nx * 3, fy + ny * 3) - lumAt(fx - nx * 3, fy - ny * 3) < 3) continue;
+      const x = Math.round(fx), y = Math.round(fy);
+      let on = false;
+      for (let dy = -1; dy <= 1 && !on; dy++)
+        for (let dx = -1; dx <= 1 && !on; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < w && yy < h && mag[yy * w + xx] >= thr) on = true;
+        }
+      if (on) hit++;
+    }
+    sides.push(hit / (n + 1));
+  }
+  const mean = sides.reduce((s, v) => s + v, 0) / 4;
+  return 0.6 * mean + 0.4 * Math.min(...sides) + 0.15 * (quadArea(q) / (w * h));
 }
 
 export function quadArea(q: Quad) {
@@ -113,11 +300,11 @@ function homography(q: Quad, w: number, h: number) {
   return b.map((v, i) => v / A[i][i]);
 }
 
-/** Flatten the quad into an upright rectangle (max 2400px on the long side). */
-export function warp(img: HTMLImageElement | HTMLCanvasElement, q: Quad): HTMLCanvasElement {
+/** Flatten the quad into an upright rectangle (at most maxSide px on the long side). */
+export function warp(img: HTMLImageElement | HTMLCanvasElement, q: Quad, maxSide = 2400): HTMLCanvasElement {
   let w = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2])));
   let h = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
-  const k = Math.min(1, 2400 / Math.max(w, h));
+  const k = Math.min(1, maxSide / Math.max(w, h));
   w = Math.max(1, Math.round(w * k));
   h = Math.max(1, Math.round(h * k));
   const SW = 'naturalWidth' in img ? img.naturalWidth : img.width;
