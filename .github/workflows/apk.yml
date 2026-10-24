@@ -21,7 +21,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships the Android SDK at ANDROID_HOME; setup-android@v3
+      # fails there trying to install the removed 'tools' package.
       # npm ci rejects the lockfile because of optional peers in @solana/* and ws.
       - run: npm install --no-audit --no-fund
       - run: npm run build
