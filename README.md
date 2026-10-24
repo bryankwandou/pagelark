@@ -2,7 +2,7 @@
 
 A free document scanner for phone, tablet and laptop. Point the camera at a page, and Pagelark finds the edges, straightens it, turns the paper clean white, reads the text, and gives you a searchable PDF. There is no account, no ad and no monthly plan, and your files stay on your device.
 
-- Web app: https://bryankwandou.github.io/pagelark/
+- Web app: https://pagelark-scanner.vercel.app/ (mirror: https://bryankwandou.github.io/pagelark/)
 - Android: debug APK built from this repo (see [Android APK](#android-apk))
 - Walkthrough videos: [desktop](docs/media/walkthrough-desktop.mp4) (47 s), [phone](docs/media/walkthrough-phone.mp4) (36 s)
 
